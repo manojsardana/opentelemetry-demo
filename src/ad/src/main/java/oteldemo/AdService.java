@@ -38,6 +38,7 @@ import oteldemo.Demo.Ad;
 import oteldemo.Demo.AdRequest;
 import oteldemo.Demo.AdResponse;
 import oteldemo.problempattern.GarbageCollectionTrigger;
+import oteldemo.problempattern.MemoryLeak;
 import oteldemo.problempattern.CPULoad;
 import dev.openfeature.contrib.providers.flagd.FlagdOptions;
 import dev.openfeature.contrib.providers.flagd.FlagdProvider;
@@ -135,6 +136,7 @@ public final class AdService {
     private static final String AD_FAILURE = "adFailure";
     private static final String AD_MANUAL_GC_FEATURE_FLAG = "adManualGc";
     private static final String AD_HIGH_CPU_FEATURE_FLAG = "adHighCpu";
+    private static final String AD_JVM_MEMORY_LEAK = "jvmHeapMemoryLeak";
     private static final Client ffClient = OpenFeatureAPI.getInstance().getClient();
     
     private AdServiceImpl() {}
@@ -153,12 +155,20 @@ public final class AdService {
       // get the current span in context
       Span span = Span.current();
       try {
+        
+        MutableContext evaluationContext = new MutableContext();
+        
+        if(ffClient.getBooleanValue(AD_JVM_MEMORY_LEAK, false, evaluationContext))
+        {
+        MemoryLeak.createMemoryLeak();
+        }
+
         List<Ad> allAds = new ArrayList<>();
         AdRequestType adRequestType;
         AdResponseType adResponseType;
 
         Baggage baggage = Baggage.fromContextOrNull(Context.current());
-        MutableContext evaluationContext = new MutableContext();
+        
         if (baggage != null) {
           final String sessionId = baggage.getEntryValue("session.id");
           span.setAttribute("session.id", sessionId);

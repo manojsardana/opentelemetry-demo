@@ -43,6 +43,20 @@ module.exports.charge = async request => {
     creditCardExpirationYear: year,
     creditCardExpirationMonth: month
   } = request.creditCard;
+
+
+  const { otp } = request.otp;
+
+  // Validate OTP - new validation
+  if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
+    span.setAttributes({'app.payment.otp_valid': false});
+    span.end();
+    throw new Error('Invalid OTP. Please provide a valid 6-digit OTP.');
+  }
+
+  // Set OTP validation attribute
+  span.setAttributes({'app.payment.otp_valid': true});
+
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   const lastFourDigits = number.substr(-4);

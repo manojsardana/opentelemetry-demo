@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;  
 using Grpc.Core;
 using StackExchange.Redis;
 using Google.Protobuf;
@@ -15,6 +16,9 @@ namespace cart.cartstore;
 public class ValkeyCartStore : ICartStore
 {
     private readonly ILogger _logger;
+    
+    private Task _cacheInvalidationTask;
+    private CancellationTokenSource _cancellationTokenSource;
     private const string CartFieldName = "cart";
     private const int RedisRetryNumber = 30;
 
@@ -128,6 +132,8 @@ public class ValkeyCartStore : ICartStore
         {
             EnsureRedisConnected();
 
+
+
             var db = _redis.GetDatabase();
 
             // Access the cart from the cache
@@ -175,6 +181,7 @@ public class ValkeyCartStore : ICartStore
 
         try
         {
+            StartPeriodicCacheInvalidation();
             EnsureRedisConnected();
             var db = _redis.GetDatabase();
 
@@ -195,6 +202,7 @@ public class ValkeyCartStore : ICartStore
 
         try
         {
+            StopPeriodicCacheInvalidation();
             EnsureRedisConnected();
 
             var db = _redis.GetDatabase();
@@ -233,4 +241,70 @@ public class ValkeyCartStore : ICartStore
             return false;
         }
     }
+
+public async Task InvalidateEntireCacheAsync()
+{
+    _logger.LogInformation("InvalidateEntireCacheAsync called to clear entire Redis cache");
+
+    try
+    {
+        using var activity = CartActivitySource.StartActivity("InvalidateEntireCache");
+        
+        EnsureRedisConnected();
+        var server = _redis.GetServer(_redis.GetEndPoints().First());
+        
+        // Flush the current database (not FLUSHALL which affects all DBs)
+        await server.FlushDatabaseAsync();
+        
+        _logger.LogDebug("Entire Redis cache has been invalidated");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to invalidate entire Redis cache");
+        throw new RpcException(new Status(StatusCode.FailedPrecondition, $"Can't invalidate entire Redis cache. {ex}"));
+    }
 }
+
+
+public void StartPeriodicCacheInvalidation()
+{
+    _logger.LogInformation("Starting periodic cache invalidation every 10 seconds");
+    
+    _cancellationTokenSource = new CancellationTokenSource();
+    _cacheInvalidationTask = RunPeriodicCacheInvalidationAsync(_cancellationTokenSource.Token);
+}
+
+private async Task RunPeriodicCacheInvalidationAsync(CancellationToken cancellationToken)
+{
+    while (!cancellationToken.IsCancellationRequested)
+    {
+        try
+        {
+            await InvalidateEntireCacheAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during periodic cache invalidation");
+        }
+        
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Task was canceled, exit the loop
+            break;
+        }
+    }
+}
+
+public void StopPeriodicCacheInvalidation()
+{
+    _logger.LogInformation("Stopping periodic cache invalidation");
+    _cancellationTokenSource?.Cancel();
+    _cancellationTokenSource?.Dispose();
+    _cancellationTokenSource = null;
+}
+}
+

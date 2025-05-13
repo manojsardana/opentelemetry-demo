@@ -7,7 +7,9 @@
 		<Nullable>enable</Nullable>
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 	</PropertyGroup>
-
+    <ItemGroup>
+        <PackageReference Include="Npgsql" Version="7.0.6" />
+    </ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Confluent.Kafka" Version="2.8.0" />
 		<PackageReference Include="Google.Protobuf" Version="3.30.0" />

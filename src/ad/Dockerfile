@@ -22,7 +22,7 @@ RUN ./gradlew installDist -PprotoSourceDir=./proto
 
 FROM eclipse-temurin:21-jre
 
-ARG OTEL_JAVA_AGENT_VERSION
+ARG OTEL_JAVA_AGENT_VERSION=2.13.0
 ARG _JAVA_OPTIONS
 
 WORKDIR /usr/src/app/

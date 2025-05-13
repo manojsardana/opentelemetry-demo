@@ -14,7 +14,7 @@ import { detectResourcesSync } from '@opentelemetry/resources/build/src/detect-r
 
 const {
   NEXT_PUBLIC_OTEL_SERVICE_NAME = '',
-  NEXT_PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = '',
+  NEXT_PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = 'https://ingress.eu-west-1.aws.dash0.com/v1/traces',
   IS_SYNTHETIC_REQUEST = '',
 } = typeof window !== 'undefined' ? window.ENV : {};
 
@@ -34,6 +34,12 @@ const FrontendTracer = async () => {
       new BatchSpanProcessor(
         new OTLPTraceExporter({
           url: NEXT_PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT || 'http://localhost:4318/v1/traces',
+          headers: {
+            // TODO we **highly** recommend that you use an auth token with restricted permissions for
+            // in-browser telemetry collection. Within the auth token settings screen, you can restrict
+            // an auth token to a single dataset and **only ingesting** permissions.
+            Authorization: "Bearer auth_R4yxDFYk9raz7f45LJhgqDPZi4wOOn01",
+          },
         }),
         {
           scheduledDelayMillis: 500,
